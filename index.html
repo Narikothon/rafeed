@@ -2,7 +2,7 @@
 <html lang="bn">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ভিডিও লাইব্রেরি</title>
 
   <style>
@@ -12,10 +12,9 @@
 
     body {
       margin: 0;
-      font-family: system-ui, sans-serif;
       background: #111827;
       color: white;
-      height: 100vh;
+      font-family: system-ui, sans-serif;
       overflow: hidden;
     }
 
@@ -24,28 +23,27 @@
       height: 100vh;
     }
 
-    .player {
+    .left {
       flex: 1;
-      background: #000;
       display: flex;
       flex-direction: column;
+      background: #000;
     }
 
-    .video-container {
+    .player-wrapper {
       flex: 1;
-      position: relative;
-      background: black;
+      overflow: auto;
+      padding: 20px;
     }
 
-    .video-container iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
+    #playerArea {
+      display: flex;
+      justify-content: center;
     }
 
     .video-info {
       padding: 16px;
-      border-top: 1px solid #222;
+      border-top: 1px solid #333;
       background: #111827;
     }
 
@@ -59,32 +57,33 @@
       margin: 0;
       opacity: 0.8;
       font-size: 14px;
+      line-height: 1.5;
     }
 
     .sidebar {
       width: 420px;
-      background: #1f2937;
       overflow-y: auto;
+      background: #1f2937;
       border-left: 1px solid #374151;
     }
 
     .topbar {
-      padding: 14px;
       position: sticky;
       top: 0;
       background: #1f2937;
-      z-index: 10;
+      padding: 12px;
       border-bottom: 1px solid #374151;
+      z-index: 10;
     }
 
     .search {
       width: 100%;
       padding: 10px 12px;
-      border-radius: 10px;
       border: none;
-      outline: none;
+      border-radius: 10px;
       background: #111827;
       color: white;
+      outline: none;
     }
 
     details {
@@ -95,21 +94,15 @@
       padding: 14px 16px;
       cursor: pointer;
       font-weight: bold;
-      list-style: none;
       background: #243041;
-    }
-
-    summary::-webkit-details-marker {
-      display: none;
     }
 
     .subcategory {
       padding: 10px 16px;
-      background: #1b2432;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
+      background: #18212f;
       color: #cbd5e1;
-      border-top: 1px solid #2d3748;
     }
 
     .video-item {
@@ -118,8 +111,7 @@
       padding: 12px 16px;
       cursor: pointer;
       border-top: 1px solid #2d3748;
-      transition: background 0.15s;
-      align-items: flex-start;
+      transition: 0.15s;
     }
 
     .video-item:hover {
@@ -134,7 +126,6 @@
       margin-top: 4px;
       width: 18px;
       height: 18px;
-      cursor: pointer;
       accent-color: #22c55e;
       flex-shrink: 0;
     }
@@ -155,10 +146,25 @@
       line-height: 1.4;
     }
 
-    .empty {
-      padding: 30px;
-      text-align: center;
-      opacity: 0.7;
+    .controls {
+      display: flex;
+      gap: 10px;
+      padding: 10px 20px;
+      border-top: 1px solid #222;
+      background: #0f172a;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #374151;
+      color: white;
+    }
+
+    button:hover {
+      background: #4b5563;
     }
 
     @media (max-width: 900px) {
@@ -169,11 +175,9 @@
       .sidebar {
         width: 100%;
         height: 45vh;
-        border-left: none;
-        border-top: 1px solid #374151;
       }
 
-      .player {
+      .left {
         height: 55vh;
       }
     }
@@ -181,55 +185,73 @@
 </head>
 <body>
 
+<div id="fb-root"></div>
+
 <div class="app">
 
-  <div class="player">
-    <div class="video-container">
-<iframe
-  id="videoFrame"
-  width="560"
-  height="314"
-  style="border:none;overflow:hidden"
-  scrolling="no"
-  frameborder="0"
-  allowfullscreen="true"
-  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-></iframe>
+  <div class="left">
+
+    <div class="player-wrapper">
+      <div id="playerArea"></div>
+    </div>
+
+    <div class="controls">
+      <button onclick="playVideo()">Play</button>
+      <button onclick="pauseVideo()">Pause</button>
+      <button onclick="seekVideo()">Seek 10s</button>
     </div>
 
     <div class="video-info">
       <h2 id="videoTitle">ভিডিও নির্বাচন করুন</h2>
       <p id="videoSubtitle"></p>
     </div>
+
   </div>
 
   <div class="sidebar">
+
     <div class="topbar">
       <input
-        type="text"
-        class="search"
         id="searchInput"
+        class="search"
         placeholder="সার্চ করুন..."
       />
     </div>
 
     <div id="categories"></div>
+
   </div>
 
 </div>
 
 <script>
-const CSV_URL =
-  "./data.csv";
+const CSV_URL = "./data.csv";
 
 const categoriesEl = document.getElementById("categories");
-const videoFrame = document.getElementById("videoFrame");
+const searchInput = document.getElementById("searchInput");
+const playerArea = document.getElementById("playerArea");
 const videoTitle = document.getElementById("videoTitle");
 const videoSubtitle = document.getElementById("videoSubtitle");
-const searchInput = document.getElementById("searchInput");
 
 let allVideos = [];
-let currentVideoId = null;
+let currentVideo = null;
+let currentPlayer = null;
+
+function sanitizeUrl(url) {
+  if (!url) return "";
+
+  url = url.trim();
+
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = "https://" + url;
+  }
+
+  try {
+    return new URL(url).toString();
+  } catch {
+    return "";
+  }
+}
 
 function parseCSV(text) {
   const rows = [];
@@ -271,28 +293,6 @@ function parseCSV(text) {
   return rows;
 }
 
-function fbEmbed(url) {
-  const clean = sanitizeUrl(url);
-
-  return `https://www.facebook.com/plugins/video.php?height=314&href=${encodeURIComponent(clean)}&show_text=false&width=560&t=0`;
-}
-
-function sanitizeUrl(url) {
-  if (!url) return "";
-
-  url = url.trim();
-
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    url = "https://" + url;
-  }
-
-  try {
-    return new URL(url).toString();
-  } catch {
-    return "";
-  }
-}
-
 function getDoneVideos() {
   try {
     return JSON.parse(localStorage.getItem("doneVideos") || "[]");
@@ -318,17 +318,50 @@ function toggleDone(link, checked) {
   setDoneVideos(done);
 }
 
-function playVideo(video) {
-  currentVideoId = video.link;
+function renderFBVideo(url) {
+  playerArea.innerHTML = `
+    <div
+      class="fb-video"
+      data-href="${url}"
+      data-width="800"
+      data-allowfullscreen="true">
+    </div>
+  `;
 
-  const embedUrl = fbEmbed(video.link);
+  currentPlayer = null;
 
-  videoFrame.src = embedUrl;
+  FB.XFBML.parse(playerArea);
+
+  FB.Event.subscribe("xfbml.ready", function(msg) {
+    if (msg.type === "video") {
+      currentPlayer = msg.instance;
+    }
+  });
+}
+
+function playItem(video) {
+  currentVideo = video;
+
+  const cleanUrl = sanitizeUrl(video.link);
+
+  renderFBVideo(cleanUrl);
 
   videoTitle.textContent = video.title;
   videoSubtitle.textContent = video.subtitle || "";
 
   renderVideos(allVideos, searchInput.value);
+}
+
+function playVideo() {
+  if (currentPlayer) currentPlayer.play();
+}
+
+function pauseVideo() {
+  if (currentPlayer) currentPlayer.pause();
+}
+
+function seekVideo() {
+  if (currentPlayer) currentPlayer.seek(10);
 }
 
 function renderVideos(videos, search = "") {
@@ -350,12 +383,6 @@ function renderVideos(videos, search = "") {
     return text.includes(search.toLowerCase());
   });
 
-  if (!filtered.length) {
-    categoriesEl.innerHTML =
-      '<div class="empty">কোন ভিডিও পাওয়া যায়নি</div>';
-    return;
-  }
-
   const grouped = {};
 
   filtered.forEach(video => {
@@ -369,6 +396,7 @@ function renderVideos(videos, search = "") {
   });
 
   Object.entries(grouped).forEach(([category, subcats]) => {
+
     const details = document.createElement("details");
     details.open = true;
 
@@ -379,7 +407,7 @@ function renderVideos(videos, search = "") {
 
     Object.entries(subcats).forEach(([subcat, videos]) => {
 
-      if (subcat && subcat !== "সাধারণ") {
+      if (subcat !== "সাধারণ") {
         const subEl = document.createElement("div");
         subEl.className = "subcategory";
         subEl.textContent = subcat;
@@ -387,10 +415,11 @@ function renderVideos(videos, search = "") {
       }
 
       videos.forEach(video => {
+
         const item = document.createElement("div");
         item.className = "video-item";
 
-        if (video.link === currentVideoId) {
+        if (currentVideo && currentVideo.link === video.link) {
           item.classList.add("active");
         }
 
@@ -422,7 +451,7 @@ function renderVideos(videos, search = "") {
         item.appendChild(content);
 
         item.addEventListener("click", () => {
-          playVideo(video);
+          playItem(video);
         });
 
         details.appendChild(item);
@@ -434,37 +463,29 @@ function renderVideos(videos, search = "") {
 }
 
 async function loadCSV() {
-  try {
-    const res = await fetch(CSV_URL);
-    const text = await res.text();
+  const res = await fetch(CSV_URL);
+  const text = await res.text();
 
-    const rows = parseCSV(text);
+  const rows = parseCSV(text);
 
-    const headers = rows[0].map(h => h.trim());
+  const headers = rows[0].map(h => h.trim());
 
-    allVideos = rows.slice(1)
-      .filter(r => r.length >= 3)
-      .map(row => {
-        const obj = {};
+  allVideos = rows.slice(1)
+    .filter(r => r.length >= 3)
+    .map(row => {
+      const obj = {};
 
-        headers.forEach((h, i) => {
-          obj[h] = (row[i] || "").trim();
-        });
-
-        return obj;
+      headers.forEach((h, i) => {
+        obj[h] = (row[i] || "").trim();
       });
 
-    renderVideos(allVideos);
+      return obj;
+    });
 
-    if (allVideos[0]) {
-      playVideo(allVideos[0]);
-    }
+  renderVideos(allVideos);
 
-  } catch (err) {
-    console.error(err);
-
-    categoriesEl.innerHTML =
-      '<div class="empty">ডাটা লোড করা যায়নি</div>';
+  if (allVideos[0]) {
+    playItem(allVideos[0]);
   }
 }
 
@@ -472,7 +493,27 @@ searchInput.addEventListener("input", e => {
   renderVideos(allVideos, e.target.value);
 });
 
-loadCSV();
+window.fbAsyncInit = function () {
+  FB.init({
+    appId: "123456789",
+    xfbml: true,
+    version: "v19.0"
+  });
+
+  loadCSV();
+};
+
+(function(d, s, id) {
+  let js, fjs = d.getElementsByTagName(s)[0];
+
+  if (d.getElementById(id)) return;
+
+  js = d.createElement(s);
+  js.id = id;
+  js.src = "https://connect.facebook.net/en_US/sdk.js";
+
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, "script", "facebook-jssdk"));
 </script>
 
 </body>
