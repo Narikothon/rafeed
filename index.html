@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ভিডিও লাইব্রেরি</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #111827;
+      color: white;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+    }
+
+    .player {
+      flex: 1;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .video-container {
+      flex: 1;
+      position: relative;
+      background: black;
+    }
+
+    .video-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .video-info {
+      padding: 16px;
+      border-top: 1px solid #222;
+      background: #111827;
+    }
+
+    .video-info h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      line-height: 1.4;
+    }
+
+    .video-info p {
+      margin: 0;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+
+    .sidebar {
+      width: 420px;
+      background: #1f2937;
+      overflow-y: auto;
+      border-left: 1px solid #374151;
+    }
+
+    .topbar {
+      padding: 14px;
+      position: sticky;
+      top: 0;
+      background: #1f2937;
+      z-index: 10;
+      border-bottom: 1px solid #374151;
+    }
+
+    .search {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+      background: #111827;
+      color: white;
+    }
+
+    details {
+      border-bottom: 1px solid #374151;
+    }
+
+    summary {
+      padding: 14px 16px;
+      cursor: pointer;
+      font-weight: bold;
+      list-style: none;
+      background: #243041;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .subcategory {
+      padding: 10px 16px;
+      background: #1b2432;
+      font-size: 14px;
+      font-weight: bold;
+      color: #cbd5e1;
+      border-top: 1px solid #2d3748;
+    }
+
+    .video-item {
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px;
+      cursor: pointer;
+      border-top: 1px solid #2d3748;
+      transition: background 0.15s;
+      align-items: flex-start;
+    }
+
+    .video-item:hover {
+      background: #334155;
+    }
+
+    .video-item.active {
+      background: #475569;
+    }
+
+    .video-checkbox {
+      margin-top: 4px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #22c55e;
+      flex-shrink: 0;
+    }
+
+    .video-content {
+      flex: 1;
+    }
+
+    .video-title {
+      font-size: 14px;
+      line-height: 1.45;
+      margin-bottom: 4px;
+    }
+
+    .video-subtitle {
+      font-size: 12px;
+      opacity: 0.7;
+      line-height: 1.4;
+    }
+
+    .empty {
+      padding: 30px;
+      text-align: center;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: 45vh;
+        border-left: none;
+        border-top: 1px solid #374151;
+      }
+
+      .player {
+        height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="player">
+    <div class="video-container">
+<iframe
+  id="videoFrame"
+  width="560"
+  height="314"
+  style="border:none;overflow:hidden"
+  scrolling="no"
+  frameborder="0"
+  allowfullscreen="true"
+  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+></iframe>
+    </div>
+
+    <div class="video-info">
+      <h2 id="videoTitle">ভিডিও নির্বাচন করুন</h2>
+      <p id="videoSubtitle"></p>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="topbar">
+      <input
+        type="text"
+        class="search"
+        id="searchInput"
+        placeholder="সার্চ করুন..."
+      />
+    </div>
+
+    <div id="categories"></div>
+  </div>
+
+</div>
+
+<script>
+const CSV_URL =
+  "./data.csv";
+
+const categoriesEl = document.getElementById("categories");
+const videoFrame = document.getElementById("videoFrame");
+const videoTitle = document.getElementById("videoTitle");
+const videoSubtitle = document.getElementById("videoSubtitle");
+const searchInput = document.getElementById("searchInput");
+
+let allVideos = [];
+let currentVideoId = null;
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let current = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === "," && !insideQuotes) {
+      row.push(current);
+      current = "";
+    } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+      if (current || row.length) {
+        row.push(current);
+        rows.push(row);
+        row = [];
+        current = "";
+      }
+    } else {
+      current += char;
+    }
+  }
+
+  if (current || row.length) {
+    row.push(current);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function fbEmbed(url) {
+  const clean = sanitizeUrl(url);
+
+  return `https://www.facebook.com/plugins/video.php?height=314&href=${encodeURIComponent(clean)}&show_text=false&width=560&t=0`;
+}
+
+function sanitizeUrl(url) {
+  if (!url) return "";
+
+  url = url.trim();
+
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = "https://" + url;
+  }
+
+  try {
+    return new URL(url).toString();
+  } catch {
+    return "";
+  }
+}
+
+function getDoneVideos() {
+  try {
+    return JSON.parse(localStorage.getItem("doneVideos") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function setDoneVideos(arr) {
+  localStorage.setItem("doneVideos", JSON.stringify(arr));
+}
+
+function toggleDone(link, checked) {
+  const done = getDoneVideos();
+
+  if (checked) {
+    if (!done.includes(link)) done.push(link);
+  } else {
+    const idx = done.indexOf(link);
+    if (idx !== -1) done.splice(idx, 1);
+  }
+
+  setDoneVideos(done);
+}
+
+function playVideo(video) {
+  currentVideoId = video.link;
+
+  const embedUrl = fbEmbed(video.link);
+
+  videoFrame.src = embedUrl;
+
+  videoTitle.textContent = video.title;
+  videoSubtitle.textContent = video.subtitle || "";
+
+  renderVideos(allVideos, searchInput.value);
+}
+
+function renderVideos(videos, search = "") {
+  categoriesEl.innerHTML = "";
+
+  const doneVideos = getDoneVideos();
+
+  const filtered = videos.filter(v => {
+    const text = (
+      v.title +
+      " " +
+      v.subtitle +
+      " " +
+      v.category +
+      " " +
+      v.subcategory
+    ).toLowerCase();
+
+    return text.includes(search.toLowerCase());
+  });
+
+  if (!filtered.length) {
+    categoriesEl.innerHTML =
+      '<div class="empty">কোন ভিডিও পাওয়া যায়নি</div>';
+    return;
+  }
+
+  const grouped = {};
+
+  filtered.forEach(video => {
+    const cat = video.category || "অন্যান্য";
+    const sub = video.subcategory || "সাধারণ";
+
+    if (!grouped[cat]) grouped[cat] = {};
+    if (!grouped[cat][sub]) grouped[cat][sub] = [];
+
+    grouped[cat][sub].push(video);
+  });
+
+  Object.entries(grouped).forEach(([category, subcats]) => {
+    const details = document.createElement("details");
+    details.open = true;
+
+    const summary = document.createElement("summary");
+    summary.textContent = category;
+
+    details.appendChild(summary);
+
+    Object.entries(subcats).forEach(([subcat, videos]) => {
+
+      if (subcat && subcat !== "সাধারণ") {
+        const subEl = document.createElement("div");
+        subEl.className = "subcategory";
+        subEl.textContent = subcat;
+        details.appendChild(subEl);
+      }
+
+      videos.forEach(video => {
+        const item = document.createElement("div");
+        item.className = "video-item";
+
+        if (video.link === currentVideoId) {
+          item.classList.add("active");
+        }
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "video-checkbox";
+        checkbox.checked = doneVideos.includes(video.link);
+
+        checkbox.addEventListener("click", e => {
+          e.stopPropagation();
+          toggleDone(video.link, checkbox.checked);
+        });
+
+        const content = document.createElement("div");
+        content.className = "video-content";
+
+        const title = document.createElement("div");
+        title.className = "video-title";
+        title.textContent = video.title;
+
+        const subtitle = document.createElement("div");
+        subtitle.className = "video-subtitle";
+        subtitle.textContent = video.subtitle || "";
+
+        content.appendChild(title);
+        content.appendChild(subtitle);
+
+        item.appendChild(checkbox);
+        item.appendChild(content);
+
+        item.addEventListener("click", () => {
+          playVideo(video);
+        });
+
+        details.appendChild(item);
+      });
+    });
+
+    categoriesEl.appendChild(details);
+  });
+}
+
+async function loadCSV() {
+  try {
+    const res = await fetch(CSV_URL);
+    const text = await res.text();
+
+    const rows = parseCSV(text);
+
+    const headers = rows[0].map(h => h.trim());
+
+    allVideos = rows.slice(1)
+      .filter(r => r.length >= 3)
+      .map(row => {
+        const obj = {};
+
+        headers.forEach((h, i) => {
+          obj[h] = (row[i] || "").trim();
+        });
+
+        return obj;
+      });
+
+    renderVideos(allVideos);
+
+    if (allVideos[0]) {
+      playVideo(allVideos[0]);
+    }
+
+  } catch (err) {
+    console.error(err);
+
+    categoriesEl.innerHTML =
+      '<div class="empty">ডাটা লোড করা যায়নি</div>';
+  }
+}
+
+searchInput.addEventListener("input", e => {
+  renderVideos(allVideos, e.target.value);
+});
+
+loadCSV();
+</script>
+
+</body>
+</html>
